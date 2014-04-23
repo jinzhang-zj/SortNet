@@ -53,6 +53,14 @@ SortNet::SortNet(int arraySize, int testCases, int solSize){
 	for (int i=0; i< solSize*2; i++){
 		// the lenght of each chromosome is 50
 		this->hosts[i] = new pair<int, int>[50];
+		for (int j=0; j< 50; j++){
+			int left = rand()%arraySize;
+			int right = rand()%arraySize;
+			if (left < right)	this->hosts[i][j] = make_pair(left,right);
+			else if (left > right)	this->hosts[i][j] = make_pair(right, left);
+			else if (left > 0)	this->hosts[i][j] = make_pair(left--,right);
+			else			this->hosts[i][j] = make_pair(left, right++);
+		}
 	}
 };
 
@@ -61,10 +69,19 @@ SortNet::SortNet(int arraySize, int testCases, int solSize){
 // for debug purpose
 void SortNet::output(){
 	cout << "displaying sorting network" << endl;
+
 	cout << "parasites: " << endl;
 	for (int i=0; i<this->testCases; i++){
 		for (int j=0; j<this->arraySize; j++){
 			cout << this->parasites[i][j] << " ";
+		}
+		cout << endl;
+	}
+
+	cout << "hosts: " << endl;
+	for (int i=0; i<this->solSize*2; i++){
+		for (int j=0; j<50; j++){
+			cout << "(" << this->hosts[i][j].first << "," << this->hosts[i][j].second << ")" << " ";
 		}
 		cout << endl;
 	}
@@ -76,16 +93,10 @@ SortNet::~SortNet(){
 		delete [] this->parasites;
 }
 
-// solution for sorting network
-class SNsol{
-	public:
-};
-
-
 int main(int argc, char* argv[])
 {
 	SortNet* sn = new SortNet(16,15,100);
-	//sn->output();	
+	sn->output();	
 
 	return 0;
 }
