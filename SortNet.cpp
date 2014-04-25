@@ -362,15 +362,16 @@ void SortNet::output(){
 		}
 		cout << endl;
 	}
-	//cout << "hosts: " << endl;
-	//for (int i=0; i<this->solSize*2; i++){
-	//	for (int j=0; j<chromeL; j++){
-	//		cout << "(" << this->hosts[i][j].first << "," << this->hosts[i][j].second << ")" << " ";
-	//	}
-	//	cout << endl;
-	//}
+	cout << "hosts: " << endl;
+	for (int i=0; i<this->solSize*2; i++){
+		for (int j=0; j<chromeL; j++){
+			cout << "(" << this->hosts[i][j].first << "," << this->hosts[i][j].second << ")" << " ";
+		}
+		cout << endl;
+	}
 };
 
+// print out the solution length, and fitness of the best solution
 void SortNet::optSol(){
 	pair<int,int> optSol[chromeL*2];
 	int l = 0;
@@ -391,7 +392,6 @@ void SortNet::optSol(){
 	}
 	cout << endl;
 }
-
 
 // destructor
 SortNet::~SortNet(){
