@@ -9,7 +9,7 @@
 #include <utility>	// pair
 #include <iostream>	// cout
 #include <time.h>	// time
-#define chromeL 8
+#define chromeL 50
 
 using namespace std;
 
@@ -23,12 +23,16 @@ class SortNet{
 	int testCases;
 	int solSize;
 	int optimal;
+	double optFit;
 	public:
 	
 	SortNet(int,int,int);
-	void evolve(int);
+	void life(int);
 	double fitness(int, int**, double*);
 	void output();
+	void solCrossover(int*, int);
+	void inputCrossover(int*, int);
+	void optSol();
 	~SortNet();
 };
 
@@ -47,7 +51,7 @@ SortNet::SortNet(int arraySize, int testCases, int solSize){
 	for (int i=0; i< testCases; i++){
 		this->parasites[i] = new int[arraySize];
 		for (int j=0; j< arraySize; j++){
-			this->parasites[i][j] = rand() % 50;
+			this->parasites[i][j] = rand() % 100;
 		}
 	}
 
@@ -110,8 +114,10 @@ void quickSort(int* array, int size, int* result){
 
 // Evolve both the input/solution arrays
 // generations: maximal number iterations allowed
-void SortNet::evolve(int generations){
+void SortNet::life(int generations){
+	cout << "life cycle begins:" << endl;
 	for (int generation=0; generation< generations; generation++){
+		cout << "generation " << generation << endl;
 		// 1. evaluate fitness
 		// fitMat: store fitness for each solution with respect to each input
 		double** fitMat = new double*[this->solSize]; 
@@ -124,18 +130,16 @@ void SortNet::evolve(int generations){
 		}
 
 		// output sorted array
-		for (int i=0; i< this->testCases; i++){
-			for (int j=0; j< this->arraySize; j++)
-				cout << sortedArray[i][j] << " ";
-			cout << endl;
-		}
-
+		//for (int i=0; i< this->testCases; i++){
+		//	for (int j=0; j< this->arraySize; j++)
+		//		cout << sortedArray[i][j] << " ";
+		//	cout << endl;
+		//}
 
 		// averaged & normalized fitness for each solution/question
 		double solFit[this->solSize];
 		double queFit[this->testCases];
 		double sum = 0;
-		double max = -10;
 
 		//cout << "get initial fitness start" << endl;
 
@@ -147,11 +151,12 @@ void SortNet::evolve(int generations){
 
 		//cout << "get initial fitness" << endl;
 
+		this->optFit = 0;
 		// sum, and find the optimal solution with maximal fitness
 		for (int i=0; i< this->solSize; i++){
 			sum += solFit[i];
-			if (solFit[i] > max){
-				max = solFit[i];
+			if (solFit[i] > this->optFit){
+				this->optFit = solFit[i];
 				this->optimal = i;
 			}
 		}
@@ -161,10 +166,11 @@ void SortNet::evolve(int generations){
 			solFit[i] /= sum;
 		}
 
-		for (int i=0; i< this->solSize; i++){
-			cout << solFit[i] << " ";
-		}
-		cout << endl;
+		//cout << "solution fitness: ";
+		//for (int i=0; i< this->solSize; i++){
+		//	cout << solFit[i] << " ";
+		//}
+		//cout << endl;
 
 		sum = 0;
 		// input array fitness
@@ -181,34 +187,126 @@ void SortNet::evolve(int generations){
 			queFit[i] /= sum;
 		}
 
+		//cout << "array fitness: ";
+		//for (int i=0; i< this->testCases; i++){
+		//	cout << queFit[i] << " ";
+		//}
+		//cout << endl;
+
 		//cout << "evluation of fitness done" << endl;
 		
-		// 2. select m out of n solutions with replacement, cross over, generate n new solutions
+		// 2. select m out of total solutions with replacement, cross over, generate n new solutions
 		// opitional: top k solutions from previous iteration can be kept
 		// sols: rank of selected solutions
-		vector<int> sols;
-		srand(time(NULL));
-		int m = 100;
+		int m = 200;
+		int i = 0;
+		int sols[m];
 		while(m){
 			int idx = rand() % this->solSize;
 			double prob = (double)rand() / RAND_MAX;
 			if (prob < solFit[idx]){	
-				sols.push_back(idx);
+				sols[i++] = idx;
 				m--;
 			}
 		}
+		// solution cross over
+		this->solCrossover(sols,i);
+	
+		// select n out of total arrays
+		i=0;
+		int n = 25;
+		int ques[n];
+		while(n){
+			int idx = rand() % this->testCases;
+			double prob = (double) rand() / RAND_MAX;
+			if (prob < queFit[i]){
+				ques[i++] = idx;
+				n--;
+			}
+		}
 
+		// input cross over
+		//this->inputCrossover(ques,i);
+		this->inputCrossover(ques, i);
 
-
-		// 3. mutation with some probability
-
+		// 3. mutation in hosts
+		// mutation frequency: 0.001
+		// #pragma omp parallel for
+		for (int i=0; i< this->solSize*2; i++){
+			for (int j=0; j< chromeL; j++){
+				// mutation with probability 0.001
+				if ( rand()%1000 < 1){
+					int left = rand() % this->arraySize;
+					int right = rand() % this->arraySize;
+					if (left < right)	this->hosts[i][j] = make_pair(left,right);
+					else if (left > right)	this->hosts[i][j] = make_pair(right,left);
+					else if (left > 0)	this->hosts[i][j] = make_pair(left--,right);
+					else			this->hosts[i][j] = make_pair(left,right++);
+				}
+			}
+		}
 
 		// cleaning up
 		delete [] fitMat;
 		delete [] sortedArray;
 	}
-	
+	cout << "life cycle ends." << endl;
 };
+
+// solution cross over
+void SortNet::solCrossover(int* bestSol, int size){
+	pair<int, int> newHosts[this->solSize*2][chromeL];
+	//#pragma omp parallel for
+	for (int i=0; i< this->solSize; i++){
+		int far = bestSol[rand() % size];
+		int mot = bestSol[rand() % size];
+		
+		// generate gamete and crossover
+		// gamete from father
+		int breakpoint = rand() % (chromeL - 5) + 2;
+		for (int j=0; j< chromeL; j++){
+			if (j <= breakpoint)	newHosts[2*i][j] = this->hosts[2*far][j];
+			else			newHosts[2*i][j] = this->hosts[2*far+1][j];
+		}
+		// gamete from mother
+		breakpoint = rand() % (chromeL - 5) + 2;
+		for (int j=0; j< chromeL; j++){
+			if (j <= breakpoint)	newHosts[2*i+1][j] = this->hosts[2*mot][j];
+			else			newHosts[2*i+1][j] = this->hosts[2*mot+1][j];
+		}
+	}
+	// update the solution
+	// #pragma omp parallel for
+	for (int i=0; i< this->solSize*2; i++){
+		for (int j=0; j< chromeL; j++)
+			this->hosts[i][j] = newHosts[i][j];
+	}
+};
+
+// input cross over
+void SortNet::inputCrossover(int* bestIn, int size ){
+	int newParasite[this->testCases][this->arraySize];
+	//#pragma omp parallel for
+	for (int i=0; i< this->testCases; i++){
+		int far = bestIn[rand() % size];
+		int mot = bestIn[rand() % size];
+
+		int breakpoint = rand() % this->arraySize;
+
+		// directly cross over father and mother
+		for (int j=0; j< this->arraySize; j++){
+			if (j <= breakpoint)	newParasite[i][j] = this->parasites[far][j];
+			else			newParasite[i][j] = this->parasites[mot][j];
+		}
+	}
+	// update the input
+	// #pragma omp parallel for
+	for (int i=0; i< this->testCases; i++){
+		for (int j=0; j< this->arraySize; j++)
+			this->parasites[i][j] = newParasite[i][j];
+	}
+};
+
 
 // helper function: compare and swap the values
 void swapcomp(pair<int, int>& pr, int* result){
@@ -264,14 +362,36 @@ void SortNet::output(){
 		}
 		cout << endl;
 	}
-	cout << "hosts: " << endl;
-	for (int i=0; i<this->solSize*2; i++){
-		for (int j=0; j<chromeL; j++){
-			cout << "(" << this->hosts[i][j].first << "," << this->hosts[i][j].second << ")" << " ";
-		}
-		cout << endl;
-	}
+	//cout << "hosts: " << endl;
+	//for (int i=0; i<this->solSize*2; i++){
+	//	for (int j=0; j<chromeL; j++){
+	//		cout << "(" << this->hosts[i][j].first << "," << this->hosts[i][j].second << ")" << " ";
+	//	}
+	//	cout << endl;
+	//}
 };
+
+void SortNet::optSol(){
+	pair<int,int> optSol[chromeL*2];
+	int l = 0;
+	
+	for (int i=0; i< chromeL; i++){
+		if (this->hosts[2*this->optimal][i] == this->hosts[2*this->optimal + 1][i]){
+			optSol[l++] = this->hosts[2*this->optimal][i];
+		}
+		else{
+			optSol[l++] = this->hosts[2*this->optimal][i];
+			optSol[l++] = this->hosts[2*this->optimal+1][i];
+		}
+	}
+	cout << "optimal solution has length " << l;
+	cout << " and fitness " << this->optFit << endl;
+	for (int i=0; i<l; i++){
+		cout << "(" << optSol[i].first << "," << optSol[i].second << ") ";
+	}
+	cout << endl;
+}
+
 
 // destructor
 SortNet::~SortNet(){
@@ -281,36 +401,15 @@ SortNet::~SortNet(){
 		delete [] this->hosts;
 };
 
-// void sort
-void testsort(){
-	int a[7] = {1,1,2,2,1,1,2};
-	int* sa = new int[7];
-	quickSort(a, 7, sa);
-
-	int d[9] = {3,5,4,2,1,7,8,4,9};
-	int* sd = new int[9];
-	quickSort(d, 9, sd);
-
-	for (int i=0; i<7; i++)
-		cout << sa[i] << " ";
-	cout << endl;
-
-	for (int i=0; i<9; i++)
-		cout << sd[i] << " ";
-	cout << endl;
-
-	delete [] sa, sd;
-};
-
 int main(int argc, char* argv[])
 {
-	
+	srand(time(NULL));
 	// network size, number of inputs, number of solutions
-	SortNet* sn = new SortNet(8,1,2);
+	SortNet* sn = new SortNet(16,100,512);
 	cout << "constructing sorting network done." << endl;
-	sn->output();	
 	//testSort();
-	sn->evolve(1);
-	cout << "evolving done." << endl;
+	sn->life(100);
+	sn->optSol();
+	//sn->output();	
 	return 0;
 }
