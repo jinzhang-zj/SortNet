@@ -195,13 +195,20 @@ void SortNet::life(int generations){
 		int m = this->solSize/2;
 		int i = 0;
 		int sols[m];
-		while(m){
-			int idx = rand() % this->solSize;
-			double prob = (double)rand() / RAND_MAX;
-			if (prob < solFit[idx]){	
-				sols[i++] = idx;
-				m--;
+
+		#pragma omp prallel
+		{
+			int tid = omp_get_thread_num();
+			
+			while(m){
+				int idx = rand() % this->solSize;
+				double prob = (double)rand() / RAND_MAX;
+				if (prob < solFit[idx]){	
+					sols[i++] = idx;
+					m--;
+				}
 			}
+
 		}
 		// solution evolution,  cross over
 		this->solCrossover(sols,i);
@@ -234,7 +241,7 @@ void SortNet::life(int generations){
 
 		// 3. mutation in hosts
 		// mutation frequency: 0.001
-		// #pragma omp parallel for
+		#pragma omp parallel for
 		for (int i=0; i< this->solSize*2; i++){
 			for (int j=0; j< chromeL; j++){
 				// mutation with probability 0.001
@@ -263,7 +270,7 @@ void SortNet::life(int generations){
 // solution cross over
 void SortNet::solCrossover(int* bestSol, int size){
 	pair<int, int> newHosts[this->solSize*2][chromeL];
-	//#pragma omp parallel for
+	#pragma omp parallel for
 	for (int i=0; i< this->solSize; i++){
 		int far = bestSol[rand() % size];
 		int mot = bestSol[rand() % size];
@@ -283,7 +290,7 @@ void SortNet::solCrossover(int* bestSol, int size){
 		}
 	}
 	// update the solution
-	// #pragma omp parallel for
+	#pragma omp parallel for
 	for (int i=0; i< this->solSize*2; i++){
 		for (int j=0; j< chromeL; j++)
 			this->hosts[i][j] = newHosts[i][j];
@@ -293,7 +300,7 @@ void SortNet::solCrossover(int* bestSol, int size){
 // input cross over
 void SortNet::inputCrossover(int* bestIn, int size ){
 	int newParasite[this->testCases][this->arraySize];
-	//#pragma omp parallel for
+	#pragma omp parallel for
 	for (int i=0; i< this->testCases; i++){
 		// top size input will enter next generation
 		if (i < size){
@@ -317,7 +324,7 @@ void SortNet::inputCrossover(int* bestIn, int size ){
 		}*/
 	}
 	// update the input
-	// #pragma omp parallel for
+	#pragma omp parallel for
 	for (int i=0; i< this->testCases; i++){
 		for (int j=0; j< this->arraySize; j++)
 			this->parasites[i][j] = newParasite[i][j];
@@ -426,8 +433,9 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
+	int numThreads = (int)atoi(argv[4]);
 	//cout << atoi(argv[1]) << atoi(argv[2]) << atoi(argv[3]) << endl;
-	omp_set_num_threads(atoi(argv[4]))
+	omp_set_num_threads(numThreads);
 	double start_time = omp_get_wtime();	
 	// network size, number of inputs, number of solutions
 	SortNet* sn = new SortNet(16,atoi(argv[1]), atoi(argv[2]));

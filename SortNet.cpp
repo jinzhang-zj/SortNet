@@ -10,6 +10,7 @@
 #include <utility>	// pair
 #include <iostream>	// cout
 #include <time.h>	// time
+#include <omp.h>
 
 #define chromeL 50
 
@@ -124,7 +125,7 @@ bool compare(const pair<double, int>& pr1, const pair<double, int>& pr2){
 void SortNet::life(int generations){
 	cout << "life cycle begins:" << endl;
 	for (int generation=0; generation< generations; generation++){
-		cout << "generation " << generation << endl;
+		//cout << "generation " << generation << endl;
 		//this->output();
 		// 1. evaluate fitness
 		// fitMat: store fitness for each solution with respect to each input
@@ -246,7 +247,10 @@ void SortNet::life(int generations){
 			}
 		}
 
-		if (! (generation%100))		this->optSol();
+		if (! (generation%500)){
+			cout << "generation: " << generation << endl;
+			this->optSol();
+		}
 		// cleaning up
 		delete [] fitMat;
 		delete [] sortedArray;
@@ -415,12 +419,20 @@ SortNet::~SortNet(){
 int main(int argc, char* argv[])
 {
 	srand(time(NULL));
+	if (argc != 4){
+		cerr <<  argv[0] << "  [input number] [solution number]  [generations]" << endl;
+		return 0;
+	}
+
+	//cout << atoi(argv[1]) << atoi(argv[2]) << atoi(argv[3]) << endl;
+	double start_time = omp_get_wtime();	
 	// network size, number of inputs, number of solutions
-	SortNet* sn = new SortNet(16,128,512);
+	SortNet* sn = new SortNet(16,atoi(argv[1]), atoi(argv[2]));
 	cout << "constructing sorting network done." << endl;
 	//testSort();
-	sn->life(1000);
+	sn->life(atoi(argv[3]));
 	sn->optSol();
+	cout << "Total time: " << omp_get_wtime() - start_time << endl;
 	//sn->output();	
 	return 0;
 }
