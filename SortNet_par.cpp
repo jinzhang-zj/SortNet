@@ -26,10 +26,11 @@ class SortNet{
 	int testCases;
 	int solSize;
 	int optimal;
+	int numThreads;
 	double optFit;
 	public:
 	
-	SortNet(int,int,int);
+	SortNet(int,int,int,int);
 	void life(int);
 	double fitness(int, int**, double*);
 	void output();
@@ -43,11 +44,12 @@ class SortNet{
 // arraySize: size of array
 // testCases: number of input arrays to be sorted
 // solSize: number of solutions maintained
-SortNet::SortNet(int arraySize, int testCases, int solSize){
+SortNet::SortNet(int arraySize, int testCases, int solSize, int numThreads){
 	
 	this->testCases = testCases;
 	this->arraySize = arraySize;
 	this->solSize = solSize;
+	this->numThreads = numThreads;
 
 	// construct parasites
 	this->parasites = new int*[this->testCases];
@@ -185,7 +187,7 @@ void SortNet::life(int generations){
 
 		//cout << "array fitness: ";
 		//for (int i=0; i< this->testCases; i++){
-		//	cout << queFit[i] << " ";
+		//	cout << queFit[i].first << " ";
 		//}
 		//cout << endl;
 
@@ -193,23 +195,36 @@ void SortNet::life(int generations){
 		// opitional: top k solutions from previous iteration can be kept
 		// sols: rank of selected solutions
 		int m = this->solSize/2;
-		int i = 0;
 		int sols[m];
+	
+		int i=0;	
+		while(m){
+			int idx = rand() % this->solSize;
+			double prob = (double) rand() / RAND_MAX;
+			if (prob < solFit[idx]){
+				sols[i++] = idx;
+				m--;
+			}
+		}
 
-		#pragma omp prallel
+		/*
+ 		#pragma omp parallel
 		{
 			int tid = omp_get_thread_num();
-			
-			while(m){
+			int start = m/this->numThreads * tid;
+			int end = m/this->numThreads * (tid + 1);
+			if (tid == this->numThreads-1)	end = m;
+
+			for(int i=start; i< end; ){
 				int idx = rand() % this->solSize;
 				double prob = (double)rand() / RAND_MAX;
 				if (prob < solFit[idx]){	
 					sols[i++] = idx;
-					m--;
 				}
 			}
-
 		}
+		#pragma omp barrier
+		*/
 		// solution evolution,  cross over
 		this->solCrossover(sols,i);
 	
@@ -217,7 +232,7 @@ void SortNet::life(int generations){
 		sort(queFit, queFit + this->testCases,  compare);
 
 		//cout << "queFit: ";
-		//for (i=0; i< this->testCases; i++){
+		//for (int i=0; i< this->testCases; i++){
 		//	cout << "(" << queFit[i].first << "," << queFit[i].second << ") ";
 		//}
 		//cout << endl;
@@ -437,8 +452,8 @@ int main(int argc, char* argv[])
 	//cout << atoi(argv[1]) << atoi(argv[2]) << atoi(argv[3]) << endl;
 	omp_set_num_threads(numThreads);
 	double start_time = omp_get_wtime();	
-	// network size, number of inputs, number of solutions
-	SortNet* sn = new SortNet(16,atoi(argv[1]), atoi(argv[2]));
+	// network size, number of inputs, number of solutions, number of threads
+	SortNet* sn = new SortNet(16,atoi(argv[1]), atoi(argv[2]), numThreads);
 	cout << "constructing sorting network done." << endl;
 	//testSort();
 	sn->life(atoi(argv[3]));
